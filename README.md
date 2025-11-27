@@ -300,7 +300,7 @@
         // --- KONFIGURASI APLIKASI ---
         const THAWING_ITEMS = [
             { id: 1, name: "ADONAN", defaultTimeMinutes: 40 },
-            { id: 2, name: "ACIN", defaultTimeMinutes: 60 },
+            { id: 2, name: "ACIN", defaultTimeMinutes: 120 },
             { id: 3, name: "MIE", defaultTimeMinutes: 120 },
             { id: 4, name: "PENTOL", defaultTimeMinutes: 120 },
             { id: 5, name: "SURAI NAGA", defaultTimeMinutes: 120 },
