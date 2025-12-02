@@ -93,7 +93,7 @@
             color: var(--color-primary-blue); 
         }
         
-        /* BARU: Mengubah warna countdown saat mode berjalan menjadi pink */
+        /* Mengubah warna countdown saat mode berjalan menjadi pink */
         .timer-card.running-mode .countdown-display {
             color: var(--color-accent-pink); 
             animation: none !important; 
@@ -260,7 +260,7 @@
 <body>
     <div class="main-container">
         <h1>Gacoan Timer Thawing 🧊</h1>
-        <p>Malang Jakarta V.1.2</p>
+        <p>Malang Jakarta V.1.3 (Alarm Debounced)</p>
         
         <div class="timer-list" id="timer-list">
         </div>
@@ -300,7 +300,7 @@
         // --- KONFIGURASI APLIKASI ---
         const THAWING_ITEMS = [
             { id: 1, name: "ADONAN", defaultTimeMinutes: 40 },
-            { id: 2, name: "ACIN", defaultTimeMinutes: 120 },
+            { id: 2, name: "ACIN", defaultTimeMinutes: 60 },
             { id: 3, name: "MIE", defaultTimeMinutes: 120 },
             { id: 4, name: "PENTOL", defaultTimeMinutes: 120 },
             { id: 5, name: "SURAI NAGA", defaultTimeMinutes: 120 },
@@ -318,6 +318,10 @@
         const WARNING_TITLE_PREFIX = '🚨 HABIS! - ';
         const FLASH_COLOR_CLASS = 'flash-alarm-red'; 
 
+        // --- BARU: STATUS GLOBAL UNTUK MENGHINDARI TABRAKAN SUARA ---
+        let isSpeaking = false; 
+        const speechQueue = []; 
+        
         // Fungsi Format Waktu
         function formatTime(totalSeconds) {
             totalSeconds = Math.max(0, totalSeconds); 
@@ -333,7 +337,7 @@
         }
         
         // =================================================
-        // 🚨 FUNGSI ALARM AGRESIF
+        // 🚨 FUNGSI ALARM AGRESIF DAN DEBOUNCING AUDIO
         // =================================================
         
         function resumeAudioContext() {
@@ -345,25 +349,51 @@
              }
         }
         
+        // Fungsi untuk memproses pesan suara di antrian
+        function processQueue() {
+            if (isSpeaking || speechQueue.length === 0) {
+                return; 
+            }
+
+            isSpeaking = true;
+            const message = speechQueue.shift(); // Ambil pesan pertama dari antrian
+
+            window.speechSynthesis.cancel(); 
+            
+            const utterance = new SpeechSynthesisUtterance(message);
+            
+            const voices = window.speechSynthesis.getVoices();
+            const indoVoice = voices.find(v => v.lang.startsWith('id'));
+            
+            if (indoVoice) {
+                utterance.voice = indoVoice;
+            } else {
+                utterance.lang = 'id-ID';
+            }
+            
+            utterance.rate = 1.0; 
+            utterance.volume = 1.0; 
+            
+            utterance.onend = () => {
+                isSpeaking = false; 
+                processQueue(); // Setelah selesai, panggil lagi untuk memproses pesan berikutnya
+            };
+            utterance.onerror = () => {
+                isSpeaking = false; 
+                processQueue(); // Jika gagal, tetap coba proses antrian berikutnya
+            };
+            
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Fungsi yang menambahkan pesan ke antrian suara (PENGGANTI speakMessage lama)
         function speakMessage(message) {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); 
-                
-                const utterance = new SpeechSynthesisUtterance(message);
-                
-                const voices = window.speechSynthesis.getVoices();
-                const indoVoice = voices.find(v => v.lang.startsWith('id'));
-                
-                if (indoVoice) {
-                    utterance.voice = indoVoice;
-                } else {
-                    utterance.lang = 'id-ID';
+                // Hindari duplikasi pesan di antrian (opsional, tapi disarankan)
+                if (!speechQueue.includes(message)) {
+                    speechQueue.push(message); 
                 }
-                
-                utterance.rate = 1.0; 
-                utterance.volume = 1.0; 
-                
-                window.speechSynthesis.speak(utterance);
+                processQueue(); 
             } else {
                 console.warn("Web Speech API tidak didukung.");
             }
@@ -429,6 +459,10 @@
             if ('vibrate' in navigator) {
                  navigator.vibrate(0); 
             }
+            // --- Reset Status Audio dan Antrian ---
+            isSpeaking = false; 
+            speechQueue.length = 0; 
+            // -------------------------------------
         }
         
         // --- LOGIKA UTAMA: FUNGSI TICK (Update tampilan berdasarkan data Firebase) ---
@@ -437,7 +471,7 @@
             const timerCard = document.getElementById(`card-${itemId}`);
             if (!timerCard) return;
 
-            // BARU: Tambahkan class 'running-mode' jika belum ada (sinkronisasi)
+            // Tambahkan class 'running-mode' jika belum ada (sinkronisasi)
             if (!timerCard.classList.contains('running-mode')) {
                 timerCard.classList.add('running-mode');
             }
@@ -494,6 +528,7 @@
             // 3. Bunyikan alarm di mode WARNING (setiap 30 detik)
             if (duration <= WARNING_TIME_SECONDS && duration > 0 && duration % 30 === 0) {
                 const remainingMinutes = Math.ceil(duration / 60);
+                // Menggunakan fungsi speakMessage baru yang mendukung antrian
                 speakMessage(`Perhatian! Waktu thawing ${itemName} kurang ${remainingMinutes} menit.`); 
             }
             
@@ -525,6 +560,7 @@
                 startVibrationAlert(); 
                 startTitleAlert(itemName);
                 startFlashAlarm();
+                // Menggunakan fungsi speakMessage baru yang mendukung antrian
                 speakMessage(`PERINGATAN KERAS! Waktu thawing ${itemName} telah habis! Segera ambil bahan!`); 
                 
                 return; 
@@ -551,7 +587,7 @@
                 return;
             }
             
-            // **Tambahkan class 'running-mode' saat memulai**
+            // Tambahkan class 'running-mode' saat memulai
             const timerCard = document.getElementById(`card-${itemId}`);
             if (timerCard) timerCard.classList.add('running-mode');
 
