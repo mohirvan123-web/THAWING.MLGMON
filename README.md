@@ -306,6 +306,9 @@
             { id: 5, name: "SURAI NAGA", defaultTimeMinutes: 120 },
             { id: 6, name: "KRUPUK MIE", defaultTimeMinutes: 120 },
             { id: 7, name: "KULIT PANGSIT", defaultTimeMinutes: 120 },
+            { id: 8, name: "UDANG KEJU", defaultTimeMinutes: 120 },
+
+    
         ];
         
         const WARNING_TIME_SECONDS = 15 * 60; 
